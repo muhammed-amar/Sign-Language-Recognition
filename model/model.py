@@ -10,26 +10,19 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
-# === Setup paths ===
+# Setup paths
 current_dir = os.path.dirname(os.path.abspath(__file__))
 data_path = os.path.join(current_dir, "landmarks.csv")
 model_save_path = os.path.join(current_dir, "cnn_asl_model_full.pth")
 encoder_save_path = os.path.join(current_dir, "label_encoder_classes.npy")
 
-# === Load Data ===
+# Load data
 df = pd.read_csv(data_path)
 X = df.drop(columns=['label']).values
 y = df['label'].values
 
-# === Label Distribution ===
-plt.figure(figsize=(10, 6))
-sns.countplot(x=df['label'], order=sorted(df['label'].unique()))
-plt.title("Label Distribution")
-plt.xticks(rotation=45)
-plt.savefig("label_distribution.png")
-plt.close()
 
-# === Normalize landmarks relative to wrist ===
+# Normalize landmarks relative to wrist
 def normalize_landmarks(landmarks):
     landmarks = landmarks.reshape(-1, 3)
     wrist = landmarks[0]
@@ -38,7 +31,7 @@ def normalize_landmarks(landmarks):
     normalized = normalized / scale
     return normalized.flatten()
 
-# === Augmentation ===
+# Data augmentation
 def augment_landmarks(landmarks):
     landmarks = landmarks.reshape(-1, 3)
     noise = np.random.normal(0, 0.01, landmarks.shape)
@@ -52,27 +45,27 @@ def augment_landmarks(landmarks):
     augmented = augmented @ rotation_matrix
     return augmented.flatten()
 
-# === Normalize and Augment ===
+# Normalize and augment data
 X_normalized = np.array([normalize_landmarks(row) for row in X])
 augment_indices = np.random.choice(len(X), size=int(0.2 * len(X)), replace=False)
 X_augmented = np.array([augment_landmarks(X[i]) for i in augment_indices])
 X_final = np.vstack([X_normalized, X_augmented])
 y_final = np.hstack([y, y[augment_indices]])
 
-# === Reshape for PyTorch ===
+# Reshape for PyTorch
 X_final = X_final.reshape(X_final.shape[0], 1, -1).astype(np.float32)
 
-# === Encode Labels ===
+# Encode labels
 label_encoder = LabelEncoder()
 y_encoded = label_encoder.fit_transform(y_final)
 num_classes = len(np.unique(y_encoded))
 
-# === Train/Test Split ===
+# Split data
 X_train, X_val, y_train, y_val = train_test_split(
     X_final, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
 )
 
-# === Dataset Class ===
+# Dataset class
 class LandmarkDataset(Dataset):
     def __init__(self, X, y):
         self.X = torch.tensor(X, dtype=torch.float32)
@@ -84,12 +77,13 @@ class LandmarkDataset(Dataset):
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
 
+# Create data loaders
 train_dataset = LandmarkDataset(X_train, y_train)
 val_dataset = LandmarkDataset(X_val, y_val)
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
 val_loader = DataLoader(val_dataset, batch_size=32)
 
-# === CNN Model ===
+# CNN model architecture
 class CNN1D(nn.Module):
     def __init__(self, input_size, num_classes):
         super(CNN1D, self).__init__()
@@ -113,13 +107,13 @@ class CNN1D(nn.Module):
         x = self.fc2(x)
         return x
 
-# === Model Setup ===
+# Setup model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CNN1D(input_size=X_final.shape[2], num_classes=num_classes).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-# === Training Loop ===
+# Training loop
 train_losses, val_losses, train_accs, val_accs = [], [], [], []
 for epoch in range(4):
     model.train()
@@ -156,36 +150,16 @@ for epoch in range(4):
 
     print(f"Epoch {epoch+1}: Train Acc = {train_acc:.4f}, Val Acc = {val_acc:.4f}")
 
-# === Plot Learning Curves ===
-plt.figure(figsize=(12, 4))
-plt.subplot(1, 2, 1)
-plt.plot(train_losses, label="Train Loss")
-plt.plot(val_losses, label="Val Loss")
-plt.title("Loss Curve")
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.legend()
-plt.subplot(1, 2, 2)
-plt.plot(train_accs, label="Train Acc")
-plt.plot(val_accs, label="Val Acc")
-plt.title("Accuracy Curve")
-plt.xlabel("Epoch")
-plt.ylabel("Accuracy")
-plt.legend()
-plt.savefig("learning_curves.png")
-plt.close()
-
-# === Save Model and Label Encoder ===
+# Save model and encoder
 try:
-    # Save model state dict instead of full model
     torch.save({
         'model_state_dict': model.state_dict(),
         'input_size': X_final.shape[2],
         'num_classes': num_classes
     }, model_save_path)
     np.save(encoder_save_path, label_encoder.classes_)
-    print(f"[INFO] Model saved successfully to {model_save_path}")
-    print(f"[INFO] Label encoder saved successfully to {encoder_save_path}")
+    print(f"[INFO] Model saved to {model_save_path}")
+    print(f"[INFO] Encoder saved to {encoder_save_path}")
 except Exception as e:
-    print(f"[ERROR] Failed to save model or encoder: {e}")
+    print(f"[ERROR] Save failed: {e}")
     exit()
