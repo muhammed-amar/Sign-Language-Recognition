@@ -7,7 +7,8 @@ A real-time sign language recognition system that converts hand gestures to text
 ## Contributors
 
 - Muhammad Amar
-- Mahmoud Elnagar
+- Mahmoud Elnagar [Mahmoud Elnagar](https://github.com/ahmedmohamed)
+ 
   
 ## ✨ Features
 
