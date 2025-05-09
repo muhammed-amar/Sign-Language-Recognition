@@ -7,6 +7,7 @@ from collections import deque
 import time
 from spellchecker import SpellChecker
 
+# CNN model for sign language recognition
 class CNN1D(nn.Module):
     def __init__(self, input_size=63, num_classes=28):
         super(CNN1D, self).__init__()
@@ -30,6 +31,7 @@ class CNN1D(nn.Module):
         x = self.fc2(x)
         return x
 
+# Main sign language processor class
 class SignProcessor:
     def __init__(self, model_path='modules/cnn_asl_model_full.pth', labels_path='modules/label_encoder_classes.npy'):
         # Initialize tracking variables
@@ -43,7 +45,7 @@ class SignProcessor:
         self.action_feedback_time = 0
         self.spell = SpellChecker(language='en')
 
-        # Constants
+        # Configuration parameters
         self.PREDICTION_INTERVAL = 2
         self.LETTER_DELAY = 0.8
         self.CONFIDENCE_THRESHOLD = 0.75
@@ -54,11 +56,12 @@ class SignProcessor:
         self.MIN_PREDICTION_COUNT = 2
         self.MIN_DELETE_PREDICTION_COUNT = 3
         
+        # Performance tracking
         self.frame_count = 0
         self.processing_time = deque(maxlen=10)
         self.is_stable = False
         
-        # Initialize Mediapipe
+        # Setup MediaPipe
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(
             static_image_mode=False,
@@ -92,7 +95,7 @@ class SignProcessor:
             raise
 
     def normalize_landmarks(self, landmarks):
-        """Normalize hand landmarks relative to wrist and scale."""
+        """Normalize hand landmarks relative to wrist position"""
         landmarks = landmarks.reshape(-1, 3)
         wrist = landmarks[0]
         normalized = landmarks - wrist
@@ -101,7 +104,7 @@ class SignProcessor:
         return normalized.flatten()
 
     def check_stability(self, current, history):
-        """Check if hand landmarks are stable across recent frames."""
+        """Check if hand position is stable across frames"""
         if len(history) < history.maxlen:
             return False
         history_array = np.array(history)
@@ -109,18 +112,18 @@ class SignProcessor:
         return np.all(diffs < self.STABILITY_THRESHOLD)
 
     def process_prediction(self, predicted_letter, confidence):
-        """Process model prediction and update word."""
+        """Process model predictions and update text"""
         if confidence < self.CONFIDENCE_THRESHOLD:
             return
     
         current_time = time.time()
     
-        # Count occurrences in prediction buffer
+        # Count letter occurrences in buffer
         letter_counts = {}
         for letter in self.prediction_buffer:
             letter_counts[letter] = letter_counts.get(letter, 0) + 1
     
-        # Handle 'del' prediction
+        # Handle delete action
         if predicted_letter == 'del' and letter_counts.get('del', 0) >= self.MIN_DELETE_PREDICTION_COUNT:
             if current_time - self.last_letter_time > self.DELETE_DELAY and self.word:
                 if self.last_delete_stable_time == 0:
@@ -139,24 +142,24 @@ class SignProcessor:
                     self.prediction_buffer.clear()
             return
     
-        # Handle letter/space addition
+        # Handle letter/space input
         if predicted_letter != 'del' and letter_counts.get(predicted_letter, 0) >= self.MIN_PREDICTION_COUNT:
             if current_time - self.last_letter_time > self.LETTER_DELAY:
                 if predicted_letter != self.last_letter or current_time - self.last_letter_time > self.REPEAT_DELAY:
                     
                     if predicted_letter == 'space':
-                        # Correct the last word before adding space
+                        # Auto-correct last word before space
                         current_word = ''.join(self.word).strip().split(' ')
                         if current_word:
                             last_word = current_word[-1]
                             corrected = self.spell.correction(last_word)
     
                             if corrected and corrected.lower() != last_word.lower():
-                                # Remove old word
+                                # Remove incorrect word
                                 for _ in range(len(last_word)):
                                     self.word.pop()
     
-                                # Add corrected word letter by letter
+                                # Add corrected word
                                 for i, c in enumerate(corrected):
                                     if not current_word[:-1] and i == 0:
                                         self.word.append(c.upper())
@@ -178,7 +181,7 @@ class SignProcessor:
                     self.prediction_buffer.clear()
 
     def process_frame(self, frame):
-        """Process a single frame and return the results."""
+        """Process video frame and return results"""
         start_time = time.time()
         frame = cv2.flip(frame, 1)
 
@@ -222,7 +225,7 @@ class SignProcessor:
         self.processing_time.append(time.time() - start_time)
         fps = float(1.0 / (sum(self.processing_time) / len(self.processing_time)))
 
-        # Prepare response
+        # Return results
         response = {
             "status": "success",
             "is_stable": bool(self.is_stable),
@@ -234,11 +237,11 @@ class SignProcessor:
         return response
 
     def get_current_text(self):
-        """Get the current predicted text."""
+        """Get current predicted text"""
         return ''.join(self.word)
 
     def reset(self):
-        """Reset the processor state."""
+        """Reset processor state"""
         self.word = []
         self.last_letter = None
         self.last_letter_time = time.time()
@@ -251,5 +254,5 @@ class SignProcessor:
         self.is_stable = False
 
     def close(self):
-        """Close the MediaPipe hands detector."""
+        """Close MediaPipe detector"""
         self.hands.close() 
