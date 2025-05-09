@@ -19,18 +19,17 @@ A real-time sign language recognition system that converts hand gestures to text
 ## 🛠️ Technical Stack
 
 ### Core Technologies
-- **Backend**: FastAPI 0.104.1
-- **Computer Vision**: OpenCV 4.8.1, MediaPipe 0.10.8
-- **Deep Learning**: PyTorch 2.1.1, TorchVision 0.16.1
-- **Data Processing**: NumPy 1.24.3
-- **API Communication**: Requests 2.31.0
-- **Text Processing**: PySpellChecker 0.7.2
+- **Backend**: FastAPI 0.115.12
+- **Computer Vision**: OpenCV 4.11.0.86, MediaPipe 0.10.21
+- **Deep Learning**: PyTorch 2.6.0 (CUDA 12.4), TorchVision 0.21.0
+- **Data Processing**: NumPy 1.26.4
+- **API Communication**: Requests 2.32.3
+- **Text Processing**: PySpellChecker 0.8.2
 
 ### Additional Tools
-- **Visualization**: Matplotlib 3.8.2, Seaborn 0.13.0
-- **Image Processing**: Pillow 10.1.0
-- **Progress Tracking**: tqdm 4.66.1
-- **Environment Management**: python-dotenv 1.0.0
+- **Visualization**: Matplotlib 3.10.1, Seaborn 0.13.2
+- **Image Processing**: Pillow 11.0.0
+- **Environment Management**: python-dotenv 1.1.0
 
 ## 🚀 Getting Started
 
@@ -38,7 +37,7 @@ A real-time sign language recognition system that converts hand gestures to text
 
 - Python 3.8 or higher
 - Webcam
-- CUDA-capable GPU (optional, for better performance)
+- CUDA 12.4 compatible GPU (recommended)
 - pip (Python package manager)
 
 ### Installation
@@ -108,7 +107,7 @@ python client.py
 - Low latency response (<100ms)
 - High accuracy in sign recognition (>90%)
 - Stable gesture detection
-- GPU acceleration support
+- GPU acceleration with CUDA 12.4
 
 ## 🔍 Usage
 
@@ -129,14 +128,14 @@ python client.py
    - Try different `CAMERA_ID`
 
 2. **Low performance**
-   - Enable GPU support
+   - Enable GPU support (CUDA 12.4)
    - Reduce video resolution
    - Close background applications
 
 3. **Installation errors**
    - Update pip: `pip install --upgrade pip`
    - Install build tools: `sudo apt-get install build-essential`
-   - For CUDA issues, check NVIDIA drivers
+   - For CUDA issues, check NVIDIA drivers (CUDA 12.4)
 
 ## 🤝 Contributing
 
