@@ -5,32 +5,32 @@ import time
 from modules.sign_processor import SignProcessor
 
 def encode_image_to_base64(frame):
-    """Convert image to base64 string"""
+    """Convert image to base64 format"""
     _, buffer = cv2.imencode('.jpg', frame)
     return base64.b64encode(buffer).decode('utf-8')
 
 def main():
-    # Initialize the sign processor
+    # Setup sign language processor
     processor = SignProcessor()
     
-    # Initialize webcam
+    # Setup webcam
     cap = cv2.VideoCapture(0)
     
-    # API endpoint
+    # API configuration
     API_URL = "https://7ff0-45-244-172-52.ngrok-free.app/ws"
     
     try:
         while True:
-            # Capture frame from webcam
+            # Get webcam frame
             ret, frame = cap.read()
             if not ret:
                 print("Failed to grab frame")
                 break
             
-            # Process frame locally
+            # Local processing
             local_response = processor.process_frame(frame)
             
-            # Prepare image for API
+            # Convert frame to base64
             image_base64 = encode_image_to_base64(frame)
             
             # Send to API
@@ -58,13 +58,13 @@ def main():
             except Exception as e:
                 print(f"Error sending to API: {str(e)}")
             
-            # Add a small delay to prevent overwhelming the system
+            # Rate limiting
             time.sleep(0.1)
             
     except KeyboardInterrupt:
         print("\nStopping the program...")
     finally:
-        # Clean up
+        # Cleanup resources
         cap.release()
         processor.close()
 
