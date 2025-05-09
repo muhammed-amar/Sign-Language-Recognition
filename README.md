@@ -3,7 +3,7 @@
 ## Contributors
 
 - Muhammad Amar
-- [Mahmoud Elnagar](https://github.com/ahmedmohamed)
+- [Mahmoud Elnagar](https://github.com/Elnagar74)
  
 ## 🎯 Overview
 
