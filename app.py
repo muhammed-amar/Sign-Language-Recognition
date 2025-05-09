@@ -5,9 +5,10 @@ import numpy as np
 import base64
 from modules.sign_processor import SignProcessor
 
+# Initialize FastAPI app
 app = FastAPI()
 
-# Add CORS middleware
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,13 +17,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize the sign processor
+# Initialize sign language processor
 processor = SignProcessor()
 
 @app.post("/ws")
 async def process_image(data: dict):
     try:
-        # Decode base64 image
+        # Convert base64 to image
         image_data = base64.b64decode(data["image"])
         nparr = np.frombuffer(image_data, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -30,7 +31,7 @@ async def process_image(data: dict):
         if frame is None:
             raise HTTPException(status_code=400, detail="Invalid image data")
         
-        # Process the frame
+        # Process frame and return results
         response = processor.process_frame(frame)
         return response
         
