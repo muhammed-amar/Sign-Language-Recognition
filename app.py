@@ -1,12 +1,14 @@
+# FastAPI app for sign language recognition
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import cv2
 import numpy as np
 import base64
+from pydantic import BaseModel
 from modules.sign_processor import SignProcessor
 
 # Initialize FastAPI app
-app = FastAPI()
+app = FastAPI(title="Sign Language Recognition API")
 
 # Configure CORS
 app.add_middleware(
@@ -20,23 +22,34 @@ app.add_middleware(
 # Initialize sign language processor
 processor = SignProcessor()
 
+class ImageData(BaseModel):
+    image: str
+
 @app.post("/ws")
-async def process_image(data: dict):
+async def process_image(data: ImageData):
     try:
         # Convert base64 to image
-        image_data = base64.b64decode(data["image"])
+        image_data = base64.b64decode(data.image)
         nparr = np.frombuffer(image_data, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
+
         if frame is None:
             raise HTTPException(status_code=400, detail="Invalid image data")
-        
+
         # Process frame and return results
         response = processor.process_frame(frame)
         return response
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+
+@app.post("/reset")
+async def reset_processor():
+    try:
+        response = processor.reset()
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reset error: {str(e)}")
 
 @app.get("/")
 async def root():
@@ -44,4 +57,4 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8000)

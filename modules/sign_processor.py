@@ -35,7 +35,7 @@ class CNN1D(nn.Module):
 class SignProcessor:
     def __init__(self, model_path='modules/cnn_asl_model_full.pth', labels_path='modules/label_encoder_classes.npy'):
         # Initialize tracking variables
-        self.landmark_history = deque(maxlen=3)
+        self.landmark_history = deque(maxlen=5)  # Increased history size for better stability
         self.prediction_buffer = deque(maxlen=4)
         self.word = []
         self.last_letter = None
@@ -47,20 +47,20 @@ class SignProcessor:
 
         # Configuration parameters
         self.PREDICTION_INTERVAL = 2
-        self.LETTER_DELAY = 0.8
+        self.LETTER_DELAY = 0.7  # Reduced delay for better response
         self.CONFIDENCE_THRESHOLD = 0.75
         self.REPEAT_DELAY = 0.8
         self.DELETE_DELAY = 0.2
         self.DELETE_STABILITY_DURATION = 0.2
-        self.STABILITY_THRESHOLD = 0.12
+        self.STABILITY_THRESHOLD = 0.1  # Stricter stability criteria
         self.MIN_PREDICTION_COUNT = 2
         self.MIN_DELETE_PREDICTION_COUNT = 3
-        
+
         # Performance tracking
         self.frame_count = 0
         self.processing_time = deque(maxlen=10)
         self.is_stable = False
-        
+
         # Setup MediaPipe
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(
@@ -69,7 +69,7 @@ class SignProcessor:
             min_detection_confidence=0.7
         )
         self.mp_drawing = mp.solutions.drawing_utils
-        
+
         # Load model
         try:
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -85,7 +85,7 @@ class SignProcessor:
         except Exception as e:
             print(f"[ERROR] Failed to load model: {e}")
             raise
-        
+
         # Load labels
         try:
             self.labels = np.load(labels_path, allow_pickle=True)
@@ -115,14 +115,14 @@ class SignProcessor:
         """Process model predictions and update text"""
         if confidence < self.CONFIDENCE_THRESHOLD:
             return
-    
+
         current_time = time.time()
-    
+
         # Count letter occurrences in buffer
         letter_counts = {}
         for letter in self.prediction_buffer:
             letter_counts[letter] = letter_counts.get(letter, 0) + 1
-    
+
         # Handle delete action
         if predicted_letter == 'del' and letter_counts.get('del', 0) >= self.MIN_DELETE_PREDICTION_COUNT:
             if current_time - self.last_letter_time > self.DELETE_DELAY and self.word:
@@ -141,38 +141,31 @@ class SignProcessor:
                     self.action_feedback_time = current_time
                     self.prediction_buffer.clear()
             return
-    
+
         # Handle letter/space input
         if predicted_letter != 'del' and letter_counts.get(predicted_letter, 0) >= self.MIN_PREDICTION_COUNT:
             if current_time - self.last_letter_time > self.LETTER_DELAY:
                 if predicted_letter != self.last_letter or current_time - self.last_letter_time > self.REPEAT_DELAY:
-                    
                     if predicted_letter == 'space':
-                        # Auto-correct last word before space
                         current_word = ''.join(self.word).strip().split(' ')
                         if current_word:
                             last_word = current_word[-1]
                             corrected = self.spell.correction(last_word)
-    
                             if corrected and corrected.lower() != last_word.lower():
-                                # Remove incorrect word
                                 for _ in range(len(last_word)):
                                     self.word.pop()
-    
-                                # Add corrected word
                                 for i, c in enumerate(corrected):
                                     if not current_word[:-1] and i == 0:
                                         self.word.append(c.upper())
                                     else:
                                         self.word.append(c.lower())
-    
                         self.word.append(' ')
                     else:
                         new_char = predicted_letter.lower()
                         if not self.word:
                             new_char = new_char.upper()
                         self.word.append(new_char)
-    
+
                     self.last_letter = predicted_letter
                     self.last_letter_time = current_time
                     self.last_delete_stable_time = 0
@@ -184,39 +177,36 @@ class SignProcessor:
         """Process video frame and return results"""
         start_time = time.time()
         frame = cv2.flip(frame, 1)
-
         image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self.hands.process(image_rgb)
 
+        predicted_letter = None
+        confidence = 0.0
+
         if results.multi_hand_landmarks:
             hand_landmarks = results.multi_hand_landmarks[0]
-            self.mp_drawing.draw_landmarks(frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
-
             landmarks = np.array([[lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark])
             normalized = self.normalize_landmarks(landmarks)
 
             self.frame_count += 1
             self.landmark_history.append(normalized)
             self.is_stable = bool(self.check_stability(normalized, self.landmark_history))
-            
+
             if not self.is_stable:
                 self.last_delete_stable_time = 0
-            
+
             if self.is_stable and self.frame_count % self.PREDICTION_INTERVAL == 0:
                 input_tensor = torch.tensor(normalized, dtype=torch.float32).reshape(1, 1, -1).to(self.device)
-
                 with torch.no_grad():
                     output = self.model(input_tensor)
                     probs = torch.softmax(output, dim=1)
                     confidence = float(torch.max(probs).item())
                     predicted_index = int(torch.argmax(probs, dim=1).item())
-
-                letter = str(self.labels[predicted_index])
-                self.prediction_buffer.append(letter)
-
+                predicted_letter = str(self.labels[predicted_index])
+                self.prediction_buffer.append(predicted_letter)
                 if len(self.prediction_buffer) == self.prediction_buffer.maxlen:
                     try:
-                        self.process_prediction(letter, confidence)
+                        self.process_prediction(predicted_letter, confidence)
                     except Exception as e:
                         print(f"[ERROR] Prediction processing error: {e}")
                         self.prediction_buffer.clear()
@@ -226,19 +216,15 @@ class SignProcessor:
         fps = float(1.0 / (sum(self.processing_time) / len(self.processing_time)))
 
         # Return results
-        response = {
+        return {
             "status": "success",
-            "is_stable": bool(self.is_stable),
+            "is_stable": self.is_stable,
             "current_text": ''.join(self.word),
-            "action_feedback": str(self.action_feedback) if self.action_feedback and time.time() - self.action_feedback_time < 2.0 else None,
-            "fps": fps
+            "action_feedback": self.action_feedback if self.action_feedback and time.time() - self.action_feedback_time < 2.0 else None,
+            "fps": fps,
+            "predicted_letter": predicted_letter,
+            "confidence": confidence
         }
-
-        return response
-
-    def get_current_text(self):
-        """Get current predicted text"""
-        return ''.join(self.word)
 
     def reset(self):
         """Reset processor state"""
@@ -252,7 +238,8 @@ class SignProcessor:
         self.landmark_history.clear()
         self.frame_count = 0
         self.is_stable = False
+        return {"status": "success", "message": "Processor reset"}
 
     def close(self):
         """Close MediaPipe detector"""
-        self.hands.close() 
+        self.hands.close()

@@ -1,72 +1,90 @@
 import cv2
 import requests
 import base64
-import time
-from modules.sign_processor import SignProcessor
+import numpy as np
 
-def encode_image_to_base64(frame):
-    """Convert image to base64 format"""
+# API endpoints
+API_URL = "http://localhost:8000/ws"
+RESET_URL = "http://localhost:8000/reset"
+
+def frame_to_base64(frame):
+    """Convert frame to base64 string"""
     _, buffer = cv2.imencode('.jpg', frame)
-    return base64.b64encode(buffer).decode('utf-8')
+    base64_image = base64.b64encode(buffer).decode('utf-8')
+    return base64_image
+
+def reset_processor():
+    """Reset the processor state"""
+    try:
+        response = requests.post(RESET_URL)
+        if response.status_code == 200:
+            print("Processor reset successfully")
+        else:
+            print(f"Reset error: {response.status_code}, {response.text}")
+    except Exception as e:
+        print(f"Error resetting processor: {e}")
+
+def process_frame(frame):
+    """Send frame to API and get response"""
+    try:
+        base64_image = frame_to_base64(frame)
+        payload = {"image": base64_image}
+        response = requests.post(API_URL, json=payload)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"Error: {response.status_code}, {response.text}")
+            return None
+    except Exception as e:
+        print(f"Error processing frame: {e}")
+        return None
 
 def main():
-    # Setup sign language processor
-    processor = SignProcessor()
-    
-    # Setup webcam
     cap = cv2.VideoCapture(0)
-    
-    # API configuration
-    API_URL = "https://7ff0-45-244-172-52.ngrok-free.app/ws"
-    
-    try:
-        while True:
-            # Get webcam frame
-            ret, frame = cap.read()
-            if not ret:
-                print("Failed to grab frame")
-                break
-            
-            # Local processing
-            local_response = processor.process_frame(frame)
-            
-            # Convert frame to base64
-            image_base64 = encode_image_to_base64(frame)
-            
-            # Send to API
-            try:
-                response = requests.post(
-                    API_URL,
-                    json={
-                        "image": image_base64
-                    }
-                )
-                
-                if response.status_code == 200:
-                    api_response = response.json()
-                    print("\nLocal Processing:")
-                    print(f"Text: {local_response['current_text']}")
-                    print(f"Action: {local_response['action_feedback']}")
-                    print(f"FPS: {local_response['fps']:.1f}")
-                    print("\nAPI Response:")
-                    print(f"Text: {api_response['current_text']}")
-                    print(f"Action: {api_response['action_feedback']}")
-                    print(f"FPS: {api_response['fps']:.1f}")
-                else:
-                    print(f"API Error: {response.status_code}")
-                    
-            except Exception as e:
-                print(f"Error sending to API: {str(e)}")
-            
-            # Rate limiting
-            time.sleep(0.1)
-            
-    except KeyboardInterrupt:
-        print("\nStopping the program...")
-    finally:
-        # Cleanup resources
-        cap.release()
-        processor.close()
+    if not cap.isOpened():
+        print("Error: Could not open camera.")
+        return
+
+    print("Starting video stream. Press 'q' to quit, 'r' to reset.")
+    reset_processor()  # Reset processor at start
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Error: Could not read frame.")
+            break
+
+        result = process_frame(frame)
+        if result:
+            current_text = result.get("current_text", "")
+            action_feedback = result.get("action_feedback", "")
+            fps = result.get("fps", 0)
+            is_stable = result.get("is_stable", False)
+            predicted_letter = result.get("predicted_letter", None)
+            confidence = result.get("confidence", 0)
+
+            # Display results on frame
+            cv2.putText(frame, f"Text: {current_text}", (10, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(frame, f"Action: {action_feedback}", (10, 60), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+            cv2.putText(frame, f"FPS: {fps:.2f}", (10, 90), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            cv2.putText(frame, f"Stable: {is_stable}", (10, 120), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+            cv2.putText(frame, f"Letter: {predicted_letter} ({confidence:.2f})", (10, 150), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+
+        cv2.imshow("Sign Language Recognition", frame)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            break
+        elif key == ord('r'):
+            reset_processor()
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main() 
+    main()
