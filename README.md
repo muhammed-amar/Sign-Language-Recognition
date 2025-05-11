@@ -1,14 +1,9 @@
 # Sign Language Recognition System
 
-## Contributors
-
-- Muhammad Amar
-- [Mahmoud Elnagar](https://github.com/Elnagar74)
- 
 ## 🎯 Overview
 
 A real-time sign language recognition system that converts hand gestures to text using computer vision and deep learning. The system processes video input from a webcam and provides instant text output with auto-correction capabilities.
-  
+
 ## ✨ Features
 
 - 🔄 Real-time hand gesture recognition
