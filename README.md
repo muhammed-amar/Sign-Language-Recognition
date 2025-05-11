@@ -90,7 +90,7 @@ python client.py
 ### Environment Variables
 
 - `API_HOST`: Server host (default: "0.0.0.0")
-- `API_PORT`: Server port (default: 8000)
+- `API_PORT`: Server port (default: 5000)
 - `CAMERA_ID`: Webcam ID (default: 0)
 
 ### Model Parameters

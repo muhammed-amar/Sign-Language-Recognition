@@ -4,8 +4,8 @@ import base64
 import numpy as np
 
 # API endpoints
-API_URL = "http://localhost:8000/ws"
-RESET_URL = "http://localhost:8000/reset"
+API_URL = "http://localhost:5000/ws"
+RESET_URL = "http://localhost:5000/reset"
 
 def frame_to_base64(frame):
     """Convert frame to base64 string"""
