@@ -81,6 +81,10 @@ python client.py
 │   └── utils.py          # Utility functions
 ├── model/             # ML models
 │   └── trained_models/   # Pre-trained models
+├── tests/             # Test suite
+│   ├── test_sign_processor.py  # Tests for sign processing
+│   ├── test_utils.py          # Tests for utility functions
+│   └── conftest.py           # Test configuration and fixtures
 ├── requirements.txt   # Project dependencies
 └── README.md         # Project documentation
 ```

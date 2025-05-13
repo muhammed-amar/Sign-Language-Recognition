@@ -54,6 +54,10 @@ def main():
             print("Error: Could not read frame.")
             break
 
+        # Create a flipped copy for display
+        display_frame = cv2.flip(frame, 1)
+        
+        # Send original frame for processing
         result = process_frame(frame)
         if result:
             current_text = result.get("current_text", "")
@@ -63,19 +67,19 @@ def main():
             predicted_letter = result.get("predicted_letter", None)
             confidence = result.get("confidence", 0)
 
-            # Display results on frame
-            cv2.putText(frame, f"Text: {current_text}", (10, 30), 
+            # Display results on flipped frame
+            cv2.putText(display_frame, f"Text: {current_text}", (10, 30), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.putText(frame, f"Action: {action_feedback}", (10, 60), 
+            cv2.putText(display_frame, f"Action: {action_feedback}", (10, 60), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-            cv2.putText(frame, f"FPS: {fps:.2f}", (10, 90), 
+            cv2.putText(display_frame, f"FPS: {fps:.2f}", (10, 90), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-            cv2.putText(frame, f"Stable: {is_stable}", (10, 120), 
+            cv2.putText(display_frame, f"Stable: {is_stable}", (10, 120), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-            cv2.putText(frame, f"Letter: {predicted_letter} ({confidence:.2f})", (10, 150), 
+            cv2.putText(display_frame, f"Letter: {predicted_letter} ({confidence:.2f})", (10, 150), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
-        cv2.imshow("Sign Language Recognition", frame)
+        cv2.imshow("Sign Language Recognition", display_frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):

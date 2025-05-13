@@ -6,6 +6,7 @@ import torch.nn as nn
 from collections import deque
 import time
 from spellchecker import SpellChecker
+import os
 
 # CNN model for sign language recognition
 class CNN1D(nn.Module):
@@ -33,7 +34,14 @@ class CNN1D(nn.Module):
 
 # Main sign language processor class
 class SignProcessor:
-    def __init__(self, model_path='modules/cnn_asl_model_full.pth', labels_path='modules/label_encoder_classes.npy'):
+    def __init__(self, model_path=None, labels_path=None):
+        # Get the absolute path to the modules directory
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if model_path is None:
+            model_path = os.path.join(base_dir, "modules", "cnn_asl_model_full.pth")
+        if labels_path is None:
+            labels_path = os.path.join(base_dir, "modules", "label_encoder_classes.npy")
+
         # Initialize tracking variables
         self.landmark_history = deque(maxlen=5)  # Increased history size for better stability
         self.prediction_buffer = deque(maxlen=4)
